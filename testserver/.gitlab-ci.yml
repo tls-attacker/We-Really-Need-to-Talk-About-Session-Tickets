@@ -1,0 +1,9 @@
+build_docker:
+  image: docker
+  tags:
+    - shared
+  script:
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN hub.cs.upb.de
+    - docker build -t hub.cs.upb.de/snhebrok/vulnerable-bssl/vulnerable_bssl:$CI_COMMIT_REF_SLUG .
+    - docker push hub.cs.upb.de/snhebrok/vulnerable-bssl/vulnerable_bssl:$CI_COMMIT_REF_SLUG
+    - docker logout hub.cs.upb.de

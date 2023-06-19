@@ -1,0 +1,14 @@
+FROM alpine:latest
+
+RUN apk add \
+    cmake ninja \
+    clang \
+    build-base \
+    linux-headers \
+    perl go
+ADD . /bssl
+RUN mkdir /bssl/build
+WORKDIR /bssl/build
+RUN cmake -GNinja .. && ninja
+
+ENTRYPOINT [ "/bssl/build/tool/bssl" ]
