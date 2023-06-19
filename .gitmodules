@@ -1,0 +1,4 @@
+[submodule "TLS-Scanner"]
+	path = TLS-Scanner
+	url = https://github.com/tls-attacker/TLS-Scanner.git
+	branch = a0d4c1a910f0eb3e5ee3e28c9435818820c67919
