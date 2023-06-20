@@ -29,9 +29,10 @@ To check whether you are affected, the best thing to do is to actually check the
 The second-best thing is to use our scanner.
 We extended [TLS-Scanner] to include tests for the vulnerabilities presented in our paper.
 You first need to build the scanner (or get its docker image) and then run it against your server.
-Then there are two parameters you might want to pass to the scanner:
-- `-connect [host]` This is required and specifies which host (including port) to scan
-- `-scanDetail NORMAL` This specifies in which depth the tests should be performed. A higher detail takes more time, but might reveal more issues. We used `DETAILED` for our experiments, but `NORMAL` should be sufficient for most cases.
+To run the scanner against a host (including port) you need to provide the  `-connect [host]` parameter.
+In addition you can specify `-scanDetail NORMAL` to change how thorough the tests should be.
+A higher detail takes more time, but might reveal more issues.
+We used `DETAILED` for our experiments, but `NORMAL` should be sufficient for most cases.
 
 ### Running with Docker
 
@@ -76,11 +77,11 @@ If it does support session tickets, the following properties should be `false`:
 - `Ticket use default STEK (enc)`
     - If `true`, the scanner found the key and format to decrypt a ticket. The key (STEK) should always be chosen randomly. Again, a network adversary can recover the secret.
 - `Ticket use default STEK (MAC)`
-    - If `true`, the scanner found the key and format compute the mac for a ticket. The key (STEK) should always be chosen randomly. This might allow an attacker to mount different attacks like a padding oracle attack. In any case this signals an underlying issue.
+    - If `true`, the scanner found the key and format to compute the mac for a ticket. The key (STEK) should always be chosen randomly. This might allow an attacker to modify a session ticket and mount different attacks, like a padding oracle attack. In any case this indicates an underlying issue.
 - `No (full) MAC check`
-    - If `true`, the scanner determined, that the server does not fully ensure the authenticity of the ticket. This might lead to a padding oracle attack. In any case this signals an underlying issue.
+    - If `true`, the scanner determined, that the server does not fully ensure the authenticity of the ticket. This might allow an attacker to modify a session ticket and mount different attacks, like a padding oracle attack. In any case this indicates an underlying issue.
 - `Vulnerable to Padding Oracle`
-    - If `true`, the scanner was able to determine the last two plaintext bytes of the ticket by abusing a padding oracle attack. This means an attacker could use this to decrypt tickets, and again recover the contained secret.
+    - If `true`, the scanner was able to determine the last two plaintext bytes of the ticket by abusing a padding oracle attack. This means an attacker could use a full padding oracle attack to decrypt session tickets, and again recover the contained secret.
 
 The scanner also outputs further information about the tested and discovered issues.
 We show two examples in the artefact evaulation experiments below.
@@ -89,7 +90,8 @@ We show two examples in the artefact evaulation experiments below.
 
 For the Artefact Evaluation we propose two experiments to show that we can detect default key material, as well as ticket authentication issues including padding oracle vulnerabilities.
 To run the experiments, you need to have a server running.
-Our experiments are designed to be used with the testserver in this repository.
+Our experiments provide the expected output of the scanner when run against the vulnerable test server.
+If you run it against your server, the output should hopefully say that no issue was found.
 
 ### Test Server setup
 
@@ -119,7 +121,7 @@ docker run --rm  -it -p8000:8000 snhebrok/vulnerable-bssl:sessionticket-ae s_ser
 **NB:** When using docker, Control+C does not work; you'll have to kill the container using `docker kill [container-id]`.
 
 
-### E: Basic Experiment Structure
+### E0: Basic Experiment Structure
 
 For all experiments you need to run the scanner against the TLS server.
 Depending on the experiment, the server needs to be configured differently.
@@ -193,16 +195,20 @@ Further down, you'll find details about the server's behavior when modifying the
 The section *Manipulation* covers the behaviour when indusing bitflips into the ticket.
 Several behaviors are pre-classified:
 
-- `A`: The ticket was accepted.
-- `\#`: The ticket was accepted, but keymaterial unknown to the scanner was used. That is, the server recovered some corrupted key material from the ticket.
-- `_`: The ticket was rejected and a normal handshake was performed. **This is the expected good behavior.** This should be the case if the authenticity of the ticket is properly ensured.
+- `A`: The modified ticket was accepted. The authenticity of the ticket was hence not verified (completely).
+- `\#`: The modified ticket was accepted, but keymaterial unknown to the scanner was used. That is, the server recovered some corrupted key material from the modified ticket.
+- `_`: The modified ticket was rejected and a normal handshake was performed. **This is the expected good behavior.** This should be the case if the authenticity of the ticket is properly ensured.
 - All other charachters are explained in the output.
 
 Further down is a subsection *Padding Oracle* which contains details stating at which position the oracle was found.
 This also includes the recovered plaintext, as well as what value was XOR-ed at which position to recover this value.
-Further down is a summary of the observed behavior difference per offset (when modifying the last byte).
+For example, `0303 (XOR 0101@16)` means that the last two bytes of the plaintext are `0303`.
+This was determined by XOR-ing `0101` with an offset of 16 from the back and observing that the server's behavior.
+
+This behavior is summarized further down for each offset (when modifying the last byte).
 Note that multiple offsets might show different behavior, but not all are necessarily a valid padding oracle vulnerability.
 This is internally verified by trying to recover the second byte. As the overall result is `TRUE`, this second byte was found.
+
 
 ![Details about missing authentication and padding oracle vulnerability](img/padding_oracle.png)
 
