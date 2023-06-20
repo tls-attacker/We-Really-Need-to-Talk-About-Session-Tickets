@@ -4,18 +4,18 @@ Session tickets improve the TLS protocol performance and are therefore widely us
 
 We found significant differences in session ticket implementations and critical security issues in the analyzed servers. Vulnerable servers used weak keys or repeating keystreams in the used tickets. Among others, our analysis revealed a widespread implementation flaw within the Amazon AWS ecosystem that allowed for passive traffic decryption for at least 1.9% of all servers in the Tranco Top 100k servers.
 
+This repository contains the code we used to perform our wide-scan Analysis.
+_This is a standalone version of our code, which we will merge into [TLS-Scanner] and [TLS-Anvil] in the future. The code is also available on the [TLS-Scanner sessionticket-ae branch](https://github.com/tls-attacker/TLS-Scanner/tree/sessionticket-ae). This repository contains that branch as a submodule._
 
-## Full Technical Paper
+## Publications
 
-[*We Really Need to Talk About Session Tickets: A Large-Scale Analysis of Cryptographic Dangers with TLS Session Tickets*](https://www.usenix.org/conference/usenixsecurity23/presentation/hebrok);
+- [Technical Paper] [*We Really Need to Talk About Session Tickets: A Large-Scale Analysis of Cryptographic Dangers with TLS Session Tickets*](https://www.usenix.org/conference/usenixsecurity23/presentation/hebrok);
 Sven Hebrok, Simon Nachtigall, Marcel Maehren, Nurullah Erinola, Robert Merget, Juraj Somorovsky, Jörg Schwenk;
 Usenix Security 2023
-
-## Blog Posts
-
-[We Really Need to Talk About Session Tickets](https://upb-syssec.github.io/blog/2023/session-tickets/);
+- [Blog Post] [We Really Need to Talk About Session Tickets](https://upb-syssec.github.io/blog/2023/session-tickets/);
 Sven Hebrok;
 2023
+- [Twitter Thread] [In our newest USENIX paper [we] took a look at the TLS session ticket deployment in the wild and found diverse vulnerabilities](https://twitter.com/jurajsomorovsky/status/1648669039844028416); Juraj Somorovsky
 
 ## Presentations
 
@@ -23,7 +23,6 @@ Sven Hebrok;
 
 ## Am I Affected? / Using this Artefact
 
-_This Artefact will be merged into [TLS-Scanner] and [TLS-Anvil] in the future. For now, use the [sessionticket-ae branch](https://github.com/tls-attacker/TLS-Scanner/tree/sessionticket-ae). The submodule in this repository already links to a stable version of this branch._
 
 To check whether you are affected, the best thing to do is to actually check the keys used on your server.
 The second-best thing is to use our scanner.
@@ -48,6 +47,8 @@ cd TLS-Scanner && docker build -t snhebrok/tls-scanner-ae .
 docker run --rm -it snhebrok/tls-scanner-ae -connect [host] -scanDetail NORMAL
 ```
 
+If you just want to use the tool itself, and not evaluate a specific server, take a look at the [test server we provide](#test-server-setup) below.
+
 **NB:** When using docker, `127.0.0.1` is not the localhost of your host machine. That is, you do not reach servers you have running on your PC this way. You have to use `172.17.0.1` (or any other IP address of your host machine) instead.
 
 ### Running from Source
@@ -61,6 +62,8 @@ cd TLS-Scanner
 mvn clean package -DskipTests=true
 java -jar apps/TLS-Server-Scanner.jar -connect [host] -scanDetail NORMAL
 ```
+
+If you just want to use the tool itself, and not evaluate a specific server, take a look at the [test server we provide](#test-server-setup) below.
 
 **If you encounter errors, check that you are using Java 11.**
 `java --version` should return something like `openjdk 11.0.19`.
@@ -97,11 +100,11 @@ If you run it against your server, the output should hopefully say that no issue
 
 To run the test server, you can either run it from source, or use docker.
 
-#### Running from Source
+#### Building from Source
 
 To build the test server, we refer you to the [BUILDING.md](testserver/BUILDING.md) contained in the testserver directory.
 
-#### Running with Docker
+#### Building with Docker
 
 To run the test server using docker, you have two options:
 Build the docker image locally, or use the prebuilt image from [dockerhub](https://hub.docker.com/r/snhebrok/vulnerable-bssl/tags).
@@ -111,9 +114,8 @@ Build the docker image locally, or use the prebuilt image from [dockerhub](https
 ```sh
 # only if you want to build the image yourself
 cd testserver && docker build -t snhebrok/vulnerable-bssl:sessionticket-ae .
-# run the server (also pulls the image if it does not exist)
-# additional parameters as per experiment
-docker run --rm  -it -p8000:8000 snhebrok/vulnerable-bssl:sessionticket-ae s_server -accept 8000 -loop -www <additional-parameters>
+# you don't need to do anything here if you want to use the prebuilt image, but can still pull it explicitly
+docker pull snhebrok/vulnerable-bssl:sessionticket-ae
 ```
 
 **NB:** When using docker, `-p8000:8000` maps the port 8000 of the container to the port 8000 of the host. This way, the server is reachable at `localhost:8000`.
@@ -130,18 +132,22 @@ When the server is running, start the scanner:
 
 ```sh
 # from source
-java -jar apps/TLS-Server-Scanner.jar -connect [host] -scanDetail NORMAL
+java -jar apps/TLS-Server-Scanner.jar -connect 127.0.0.1:8000 -scanDetail NORMAL
 # with docker
-docker run --rm -it snhebrok/tls-scanner-ae -connect [host] -scanDetail NORMAL
+docker run --rm -it snhebrok/tls-scanner-ae -connect 172.17.0.1:8000 -scanDetail NORMAL
 ```
 
+This assumes that the testserver is running on your host machine (`127.0.0.1` from your host, or `172.17.0.1` from within docker).
+When using docker, this _should_ be `172.17.0.1`.
+If this does not work, take a look at your IP configuration.
 
-### E1: Detecting default keys (5+5 minutes)
+### E1: Detecting default keys (5 human-minutes + 5 compute-minutes)
 
 **Setup** Run the test server with the following parameters:
-```
-docker run --rm  -it -p8000:8000 snhebrok/vulnerable-bssl:sessionticket-ae s_server -accept 8000 -loop -www \
-    -ticketEnc AES-256-CBC -ticketHMac None
+```sh
+docker run --rm -it -p8000:8000 snhebrok/vulnerable-bssl:sessionticket-ae s_server -accept 8000 -loop -www \
+    -ticketEnc AES-128-CBC -ticketEncKey 00 \
+    -ticketHMac SHA256 -ticketHMacKey 00 -ticketHMacKeyLen 32
 ```
 
 **Expected Result** The scanner should report the following:
@@ -175,13 +181,12 @@ This command extracts the session ticket from the session cache and decrypts it 
 The decryption is then formatted as a hexdump.
 This hexdump, should contain the secret from step 2.
 
-### E2: Detecting missing authentication and padding oracles (5+10 minutes)
+### E2: Detecting missing authentication and padding oracles (5 human-minutes + 15 compute-minutes)
 
 **Setup** Run the test server with the following parameters:
-```
-docker run --rm  -it -p8000:8000 snhebrok/vulnerable-bssl:sessionticket-ae s_server -accept 8000 -loop -www \
-    -ticketEnc AES-128-CBC -ticketEncKey 00 \
-    -ticketHMac SHA256 -ticketHMacKey 00 -ticketHMacKeyLen 32
+```sh
+docker run --rm -it -p8000:8000 snhebrok/vulnerable-bssl:sessionticket-ae s_server -accept 8000 -loop -www \
+    -ticketEnc AES-256-CBC -ticketHMac None
 ```
 
 **Expected Result** The scanner should report the following:
@@ -212,6 +217,31 @@ This is internally verified by trying to recover the second byte. As the overall
 
 ![Details about missing authentication and padding oracle vulnerability](img/padding_oracle.png)
 
+
+## FAQ/Common Errors
+
+
+`ERROR: TrustAnchorManager - Could not load TrustAnchors. This means that you are running TLS-Scanner without its submodules. If you want to evaluate if certificates are trusted by browsers you need to initialize submodules.You can do this by running the following command:'git submodule update --init --recursive'`
+
+This message informs that certificate validation cannot be performed as trust anchors are missing.
+In this context you can ignore this message.
+
+---
+
+`Cannot reach the Server. Is it online?`
+
+This message informs that the server could not be reached.
+That is, the port is not open.
+When running the scanner from within docker, this most likely happens due to using the wrong IP address. (`127.0.0.1` is inside the docker container; use `172.17.0.1` to reach the host)
+
+---
+
+```
+Exception in thread "main" java.lang.ExceptionInInitializerError
+	at de.rub.nds.tlsscanner.serverscanner.config.ScannerConfig.createConfig(ScannerConfig.java:201)
+[...]
+```
+Check which java version you are using. You need to use Java 11.
 
 
 [TLS-Attacker-Description]: https://github.com/tls-attacker/TLS-Attacker-Description
