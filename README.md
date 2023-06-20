@@ -201,9 +201,9 @@ The section *Manipulation* covers the behaviour when indusing bitflips into the 
 Several behaviors are pre-classified:
 
 - `A`: The modified ticket was accepted. The authenticity of the ticket was hence not verified (completely).
-- `\#`: The modified ticket was accepted, but keymaterial unknown to the scanner was used. That is, the server recovered some corrupted key material from the modified ticket.
-- `_`: The modified ticket was rejected and a normal handshake was performed. **This is the expected good behavior.** This should be the case if the authenticity of the ticket is properly ensured.
-- All other charachters are explained in the output.
+- `#`: The modified ticket was accepted, but key material unknown to the scanner was used. That is, the server recovered some corrupted key material from the modified ticket.
+- `_`: The modified ticket was rejected, and a normal handshake was performed. **This is the expected good behavior.** This should be the case if the authenticity of the ticket is properly ensured.
+- All other characters are explained in the output.
 
 Further down is a subsection *Padding Oracle* which contains details stating at which position the oracle was found.
 This also includes the recovered plaintext, as well as what value was XOR-ed at which position to recover this value.
@@ -212,7 +212,7 @@ This was determined by XOR-ing `0101` with an offset of 16 from the back and obs
 
 This behavior is summarized further down for each offset (when modifying the last byte).
 Note that multiple offsets might show different behavior, but not all are necessarily a valid padding oracle vulnerability.
-This is internally verified by trying to recover the second byte. As the overall result is `TRUE`, this second byte was found.
+This is internally verified by trying to recover the second byte. As the `Overall Result` is `TRUE`, this second byte was found.
 
 
 ![Details about missing authentication and padding oracle vulnerability](img/padding_oracle.png)
