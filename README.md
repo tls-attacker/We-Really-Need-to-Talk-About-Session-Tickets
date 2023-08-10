@@ -19,7 +19,9 @@ Sven Hebrok;
 
 ## Presentations
 
-- RuhrSec 2023 (video and slides TBA)
+- [RuhrSec 2023](https://www.ruhrsec.de/2023/index.html#talks) ([video](https://youtu.be/LlrgEz33nb8), [slides](https://www.ruhrsec.de/downloads/slides/We-Really-Need-to-Talk-About-Session-Tickets-Sven-Hebrok-RuhrSec.pdf))
+- [32nd USENIX Security Symposium](https://www.usenix.org/conference/usenixsecurity23/presentation/hebrok)
+- [WAC 6](https://www.cryptanalysis.fun/)
 
 ## Am I Affected? / Using this Artefact
 
